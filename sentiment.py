@@ -13,6 +13,8 @@ from sklearn.preprocessing import LabelEncoder
 import pickle as pkl
 from dostoevsky.tokenization import RegexTokenizer
 from dostoevsky.models import FastTextSocialNetworkModel
+import datetime
+
         
 tokenizer = RegexTokenizer()
 model = FastTextSocialNetworkModel(tokenizer=tokenizer)
@@ -24,6 +26,14 @@ pos_log_reg = pkl.load(open('pos_log_reg.pkl', 'rb'))
 neg_log_reg = pkl.load(open('neg_log_reg.pkl', 'rb'))
 pos_log_reg_dost = pkl.load(open('pos_log_reg_dost.pkl', 'rb'))
 neg_log_reg_dost = pkl.load(open('neg_log_reg_dost.pkl', 'rb'))
+
+old_data = pd.read_pickle('data/new_data.pkl')
+old_data['index'] = old_data.index
+training_data = pd.read_csv('data/training_data_with_razmetka_final.csv')
+
+data_new = training_data.merge(old_data, on=['index','message'])
+cut_date = lambda x: datetime.date(x.year, x.month, x.day)
+data_new['local_datetime'] = pd.to_datetime(data_new.local_datetime).apply(cut_date)
 
 # function for performing parallel computing on cpu
 def parallelization(func, massive, jobs=None, tq=True):
@@ -145,3 +155,26 @@ def sentiment_analysis(sentences, use_dost=True):
         preds_neg = list(map(lambda x: np.round(x[1], 3), neg_log_reg.predict_proba(inputs)))
     
     return np.array([preds_pos, preds_neg]).T
+
+
+def get_date_list(numdays, base):
+    date_list = [base - datetime.timedelta(days=x) for x in range(numdays)]
+    return date_list
+
+
+def sent_analyse_dates(period, base=datetime.date(2019, 9, 3)):
+    if period == 'week':
+        date_list = get_date_list(7, base)
+        data_period = data_new[data_new.local_datetime.isin(date_list)]
+
+    elif period == 'month':
+        date_list = get_date_list(31, base)
+        data_period = data_new[data_new.local_datetime.isin(date_list)]
+
+    elif period == 'all':
+        data_period = data_new
+    else:
+        raise ValueError('invalid period name')
+        
+    predictions = sentiment_analysis(data_period.message.values)
+    return np.mean(predictions, axis=0)
