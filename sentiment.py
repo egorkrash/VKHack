@@ -15,17 +15,17 @@ from dostoevsky.tokenization import RegexTokenizer
 from dostoevsky.models import FastTextSocialNetworkModel
 import datetime
 
-        
+
 tokenizer = RegexTokenizer()
 model = FastTextSocialNetworkModel(tokenizer=tokenizer)
 
 # morph analyzer for text lemmatization
 morph = pymorphy2.MorphAnalyzer()
 fasttext = FastTextKeyedVectors.load('187/model.model')
-pos_log_reg = pkl.load(open('pos_log_reg.pkl', 'rb'))
-neg_log_reg = pkl.load(open('neg_log_reg.pkl', 'rb'))
-pos_log_reg_dost = pkl.load(open('pos_log_reg_dost.pkl', 'rb'))
-neg_log_reg_dost = pkl.load(open('neg_log_reg_dost.pkl', 'rb'))
+pos_log_reg = pkl.load(open('pickles/pos_log_reg.pkl', 'rb'))
+neg_log_reg = pkl.load(open('pickles/neg_log_reg.pkl', 'rb'))
+pos_log_reg_dost = pkl.load(open('pickles/pos_log_reg_dost.pkl', 'rb'))
+neg_log_reg_dost = pkl.load(open('pickles/neg_log_reg_dost.pkl', 'rb'))
 
 old_data = pd.read_pickle('data/new_data.pkl')
 old_data['index'] = old_data.index
@@ -88,7 +88,6 @@ def get_text_vectors(text):
     for i,word in enumerate(text):
         vector = fasttext[word]
         matrix[i] = vector
-        
     return matrix
 
 def get_dost_vector(pred):
@@ -99,7 +98,6 @@ def preprocess(texts):
     # embedding vectors weighted with tfidf
     preprocessed_texts = parallelization(text2canonicals, texts)
     lengths = np.array(list(map(lambda x: len(x) if len(x) > 0 else 1, preprocessed_texts)))
-    
     texts = list(map(lambda x: ' '.join(x), preprocessed_texts))
     vectorizer = TfidfVectorizer()
     tfifd_vectorized = vectorizer.fit_transform(texts).toarray()
@@ -130,7 +128,7 @@ def preprocess2(texts, use_dost=False):
         else:
             vector = np.random.randn(300,)
         embeddings[i] = vector
-        
+
     if use_dost:
         return np.concatenate((embeddings, dost_vectors), axis=1)
     return embeddings
@@ -143,17 +141,17 @@ def emotional(x):
     return 0
 
 
-def sentiment_analysis(sentences, use_dost=True):
+def sent_predict(sentences, use_dost=True):
     emotional_col = list(map(lambda x: emotional(x), sentences))
-    prep_sent = preprocess2(sentences, True)
+    prep_sent = preprocess2(sentences, use_dost)
     inputs = np.concatenate((prep_sent, np.array(emotional_col).reshape(-1, 1)), axis=1)
     if use_dost:
-        preds_pos = list(map(lambda x: np.round(x[1], 3), pos_log_reg_dost.predict_proba(inputs)))
-        preds_neg = list(map(lambda x: np.round(x[1], 3), neg_log_reg_dost.predict_proba(inputs)))
+        preds_pos = list(map(lambda x: np.round(x[1], 4), pos_log_reg_dost.predict_proba(inputs)))
+        preds_neg = list(map(lambda x: np.round(x[1], 4), neg_log_reg_dost.predict_proba(inputs)))
     else:
-        preds_pos = list(map(lambda x: np.round(x[1], 3), pos_log_reg.predict_proba(inputs)))
-        preds_neg = list(map(lambda x: np.round(x[1], 3), neg_log_reg.predict_proba(inputs)))
-    
+        preds_pos = list(map(lambda x: np.round(x[1], 4), pos_log_reg.predict_proba(inputs)))
+        preds_neg = list(map(lambda x: np.round(x[1], 4), neg_log_reg.predict_proba(inputs)))
+
     return np.array([preds_pos, preds_neg]).T
 
 
@@ -175,6 +173,6 @@ def sent_analyse_dates(period, base=datetime.date(2019, 9, 3)):
         data_period = data_new
     else:
         raise ValueError('invalid period name')
-        
-    predictions = sentiment_analysis(data_period.message.values)
+
+    predictions = sent_predict(data_period.message.values)
     return np.mean(predictions, axis=0)
