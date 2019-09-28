@@ -80,4 +80,4 @@ df['lemma'] = result
 df['len_lemma'] = df['lemma'].apply(lambda x: len(x))
 df = df[df['len_lemma'] != 0]
 
-df.drop('len_lemma', axis=1).to_pickle('new_data.pkl')
+df.drop('len_lemma', axis=1).to_pickle('pickles/new_data.pkl')
