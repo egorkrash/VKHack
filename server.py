@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from sentiment import sent_predict, sent_analyse_dates
+from cluster import infer_cluster, get_top_clusters_overall, get_top_clusters_month, get_top_clusters_week, comments
 import numpy as np
 app = Flask(__name__)
 
@@ -24,10 +25,9 @@ def topic_modelling():
         text = input_dict['text']
 
         #code
-        cluster_name = 'переводы за еду'
-        random_messages = ['перевожу за шавуху', 'спасибо, шавуха была вкусная', 'офигенно поели']
+        cluster_name, random_messages = infer_cluster(text)
 
-        res = {'cluster_name': cluster_name,
+        res = {'cluster_name': str(cluster_name),
          'message_1' : random_messages[0],
          'message_2' : random_messages[1],
          'message_3' : random_messages[2]}
@@ -57,13 +57,26 @@ def get_topic_map():
         if time not in possible_time:
             return 'this option is not possible'
         #code
-        clusters_ratio = {'cluster_1_name': 'переводы за еду',
-               'cluster_2_name': 'образование',
-               'cluster_3_name': 'образование',
-               'cluster_1_ratio': 23,
-               'cluster_2_ratio': 19,
-               'cluster_3_ratio': 17
+        if time == 'week':
+             pred = get_top_clusters_week(comments)
+        elif time == 'month':
+             pred = get_top_clusters_month(comments)
+        else:
+             pred = get_top_clusters_overall(comments)
+
+        keys, values = list(pred.keys()), list(pred.values())
+        clusters_ratio = {'cluster_1_name': str(keys[0]),
+               'cluster_2_name': str(keys[1]),
+               'cluster_3_name': str(keys[2]),
+               'cluster_1_ratio': values[0],
+               'cluster_2_ratio': values[1],
+               'cluster_3_ratio': values[2]
                }
+        #clusters_ratio = {
+        #       str(keys[0]): values[0],
+        #       str(keys[1]): values[1],
+        #       str(keys[2]): values[2]
+        #       }
         return jsonify(clusters_ratio)
 
 @app.route('/get_sentiment_map', methods=['POST'])
